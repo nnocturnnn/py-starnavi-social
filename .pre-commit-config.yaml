@@ -13,15 +13,15 @@ repos:
           - "--diff"
           - "--color"
         verbose: true
-      - id: black
-        # https://github.com/psf/black-pre-commit-mirror
-        name: black
-        entry: black
-        language: system
-        types_or:
-          - python
-          - pyi
-        require_serial: true
+      # - id: black
+      #   # https://github.com/psf/black-pre-commit-mirror
+      #   name: black
+      #   entry: black
+      #   language: system
+      #   types_or:
+      #     - python
+      #     - pyi
+      #   require_serial: true
       - id: blacken-docs
         # https://github.com/asottile/blacken-docs
         name: blacken-docs
