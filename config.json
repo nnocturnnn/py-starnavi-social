@@ -1,0 +1,11 @@
+{
+    "automated_bot": {
+        "number_of_users": 5,
+        "max_posts_per_user": 10
+    },
+    "starnavi": {
+        "number_of_users": 5,
+        "max_posts_per_user": 10,
+        "max_likes_per_user": 20
+    }
+}
