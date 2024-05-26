@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db.models import Count
 from django.utils import timezone
 from django.utils.timezone import now
@@ -77,8 +78,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         post = serializer.save(user=self.request.user)
-        logger.info(f"Post created successfully by user: {
-                    self.request.user.username}")
+        logger.info(f"Post created successfully by user: {self.request.user.username}")
         return Response({
             'status': 'Post created successfully',
             'post': PostSerializer(post).data
@@ -95,8 +95,7 @@ class PostViewSet(viewsets.ModelViewSet):
     def _like_unlike_post(self, request, pk, like=True):
         post = self.get_object()
         user = request.user
-        like_instance, created = Like.objects.get_or_create(
-            user=user, post=post)
+        like_instance, created = Like.objects.get_or_create(user=user, post=post)
         if like:
             if created:
                 logger.info(f"Post liked successfully: {
@@ -106,8 +105,7 @@ class PostViewSet(viewsets.ModelViewSet):
                     'post': PostSerializer(post).data,
                     'user': UserSerializer(user).data
                 }, status=status.HTTP_200_OK)
-            logger.warning(f"Post already liked: {
-                           post.id} by user: {user.username}")
+            logger.warning(f"Post already liked: {post.id} by user: {user.username}")
             return Response({
                 'status': 'Post already liked',
                 'post': PostSerializer(post).data,
@@ -115,15 +113,13 @@ class PostViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         if not created:
             like_instance.delete()
-            logger.info(f"Post unliked successfully: {
-                        post.id} by user: {user.username}")
+            logger.info(f"Post unliked successfully: {post.id} by user: {user.username}")
             return Response({
                 'status': 'Post unliked successfully',
                 'post': PostSerializer(post).data,
                 'user': UserSerializer(user).data
             }, status=status.HTTP_200_OK)
-        logger.warning(f"Post not liked yet: {
-                       post.id} by user: {user.username}")
+        logger.warning(f"Post not liked yet: {post.id} by user: {user.username}")
         return Response({
             'status': 'Post not liked yet',
             'post': PostSerializer(post).data,
@@ -134,15 +130,22 @@ class PostViewSet(viewsets.ModelViewSet):
     def analytics(self, request):
         date_from = request.query_params.get('date_from')
         date_to = request.query_params.get('date_to')
+        cache_key = f'analytics_{date_from}_{date_to}'
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            logger.info("Analytics data retrieved from cache")
+            return Response({
+                'status': 'Analytics data retrieved successfully (from cache)',
+                'data': cached_data
+            })
+
         if not date_from or not date_to:
-            logger.error(
-                "Analytics request missing date_from or date_to parameters")
+            logger.error("Analytics request missing date_from or date_to parameters")
             return Response({"error": "date_from and date_to are required parameters"},
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            date_from = timezone.datetime.strptime(
-                date_from, '%Y-%m-%d').date()
+            date_from = timezone.datetime.strptime(date_from, '%Y-%m-%d').date()
             date_to = timezone.datetime.strptime(date_to, '%Y-%m-%d').date()
 
             likes_data = Like.objects.filter(date__date__range=[date_from, date_to])\
@@ -150,6 +153,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 .annotate(count=Count('public_id'))
             serializer = AnalyticsSerializer(likes_data, many=True)
             logger.info("Analytics data retrieved successfully")
+            cache.set(cache_key, serializer.data, timeout=60*60)  # Cache for 1 hour
             return Response({
                 'status': 'Analytics data retrieved successfully',
                 'data': serializer.data
