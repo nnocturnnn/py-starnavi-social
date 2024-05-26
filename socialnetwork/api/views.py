@@ -5,6 +5,8 @@ from django.core.cache import cache
 from django.db.models import Count
 from django.utils import timezone
 from django.utils.timezone import now
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -23,6 +25,11 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_description="Register a new user",
+        request_body=UserSerializer,
+        responses={201: UserSerializer()}
+    )
     @action(detail=False, methods=['post'])
     def signup(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -36,6 +43,20 @@ class UserViewSet(viewsets.ModelViewSet):
         logger.error(f"Signup failed: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Login user and return JWT tokens",
+        responses={
+            200: openapi.Response(
+                description="Login successful",
+                examples={"application/json": {"status": "Login successful",
+                                               "refresh": "jwt_refresh_token",
+                                               "access": "jwt_access_token",
+                                               "user": {"username": "testuser",
+                                                         "email": "testuser@example.com"}}}  # noqa E501
+            ),
+            401: openapi.Response(description="Invalid credentials")
+        }
+    )
     @action(detail=False, methods=['post'])
     def login(self, request):
         username = request.data.get('username')
@@ -54,6 +75,17 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'error': 'Invalid credentials'},
                         status=status.HTTP_401_UNAUTHORIZED)
 
+    @swagger_auto_schema(
+        operation_description="Get user activity details",
+        responses={
+            200: openapi.Response(
+                description="User activity details",
+                examples={"application/json": {"status": "User activity retrieved successfully",  # noqa E501
+                                               "last_login": "2023-05-26T00:00:00Z",
+                                               "last_request": "2023-05-26T00:00:00Z"}}
+            )
+        }
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def activity(self, request):
         user = request.user
@@ -84,10 +116,24 @@ class PostViewSet(viewsets.ModelViewSet):
             'post': PostSerializer(post).data
         }, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        operation_description="Like a post",
+        responses={
+            200: openapi.Response(description="Post liked successfully"),
+            400: openapi.Response(description="Post already liked")
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def like(self, request, pk=None):
         return self._like_unlike_post(request, pk, like=True)
 
+    @swagger_auto_schema(
+        operation_description="Unlike a post",
+        responses={
+            200: openapi.Response(description="Post unliked successfully"),
+            400: openapi.Response(description="Post not liked yet")
+        }
+    )
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def unlike(self, request, pk=None):
         return self._like_unlike_post(request, pk, like=False)
@@ -126,6 +172,18 @@ class PostViewSet(viewsets.ModelViewSet):
             'user': UserSerializer(user).data
         }, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_description="Retrieve analytics data for likes between two dates",
+        manual_parameters=[
+            openapi.Parameter('date_from', openapi.IN_QUERY,
+                              description="Start date in YYYY-MM-DD format",
+                              type=openapi.TYPE_STRING),
+            openapi.Parameter('date_to', openapi.IN_QUERY,
+                              description="End date in YYYY-MM-DD format",
+                              type=openapi.TYPE_STRING),
+        ],
+        responses={200: AnalyticsSerializer(many=True)}
+    )
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def analytics(self, request):
         date_from = request.query_params.get('date_from')
@@ -153,7 +211,7 @@ class PostViewSet(viewsets.ModelViewSet):
                 .annotate(count=Count('public_id'))
             serializer = AnalyticsSerializer(likes_data, many=True)
             logger.info("Analytics data retrieved successfully")
-            cache.set(cache_key, serializer.data, timeout=60*60)  # Cache for 1 hour
+            cache.set(cache_key, serializer.data, timeout=60*60)
             return Response({
                 'status': 'Analytics data retrieved successfully',
                 'data': serializer.data
