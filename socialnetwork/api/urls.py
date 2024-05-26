@@ -6,8 +6,8 @@ from rest_framework_simplejwt.views import (TokenObtainPairView,
 from .views import PostViewSet, UserViewSet
 
 router = DefaultRouter()
-router.register(r'users', UserViewSet)
-router.register(r'posts', PostViewSet)
+router.register(r'users', UserViewSet, basename='user')
+router.register(r'posts', PostViewSet, basename='post')
 
 urlpatterns = [
     path('', include(router.urls)),
