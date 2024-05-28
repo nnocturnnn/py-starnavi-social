@@ -171,8 +171,8 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/django_debug.log'),
-            'when': 'midnight',  # Rotate logs at midnight
-            'backupCount': 7,    # Keep one week of logs
+            'when': 'midnight',
+            'backupCount': 7,
             'formatter': 'verbose',
         },
         'console': {
@@ -185,7 +185,7 @@ LOGGING = {
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/django_error.log'),
             'when': 'midnight',
-            'backupCount': 30,   # Keep one month of logs
+            'backupCount': 30,
             'formatter': 'verbose',
         },
     },
@@ -195,7 +195,7 @@ LOGGING = {
             'level': 'DEBUG',
             'propagate': True,
         },
-        'myapp': {  # Replace 'myapp' with your actual app name
+        'api': {
             'handlers': ['console', 'file', 'error_file'],
             'level': 'DEBUG',
             'propagate': True,
